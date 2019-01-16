@@ -1,0 +1,17 @@
+@import 'src/styles/settings/settings';
+
+:host {
+  mat-form-field {
+    width: 100%;
+
+    mat-icon {
+      color: $color-yellow;
+      transform: rotate(45deg);
+      transition: 0.3s all cubic-bezier(0.19, 1, 0.22, 1);
+      &.is-valid {
+        transform: none;
+        color: $color-green;
+      }
+    }
+  }
+}
