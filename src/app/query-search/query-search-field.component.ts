@@ -1,10 +1,7 @@
 import { Component, Output, EventEmitter } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { BehaviorSubject } from 'rxjs';
-import {
-  BASKET_STAGES_EU,
-  BASKET_STAGES
-} from '../../../models/basket_stages.model';
+
 import { QuerySearchSelectedEvent } from './query-search.component';
 import {
   COMPROMISE_GRAMMER,
@@ -16,7 +13,7 @@ import { ConstantPool } from '@angular/compiler';
 import { includes } from 'lodash';
 
 import * as nlp from 'compromise';
-import { FUND_NAMES, FUND_TICKERS } from '../../consts/funds.consts';
+import { FUND_NAMES, FUND_TICKERS, BASKET_STAGES, BASKET_STAGES_EU } from './query-search.consts';
 nlp.plugin(COMPROMISE_PLUGIN);
 
 const GRAMMAR_LINKS = [];
