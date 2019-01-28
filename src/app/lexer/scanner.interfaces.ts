@@ -1,6 +1,12 @@
-  // tslint:disable:no-bitwise
+// tslint:disable:no-bitwise
 
-
+export interface QueryToken {
+  currentToken: SyntaxKind;
+  tokenString: string;
+  tokenVal: string;
+  tokenStart: number;
+  tokenEnd: number;
+}
 
 export const enum SyntaxKind {
   Unknown,
@@ -8,10 +14,13 @@ export const enum SyntaxKind {
   QuestionToken,
   Identifier,
 
+  FieldToken,
+
   NumericLiteral,
   BigIntLiteral,
   StringLiteral,
 
+  ExclamationEqualsToken,
   EqualsEqualsEqualsToken,
   EqualsEqualsToken,
   EqualsGreaterThanToken,
@@ -22,25 +31,28 @@ export const enum SyntaxKind {
   LessThanEqualsToken,
   LessThanToken,
 
-  InKeywordToken
+  InKeywordToken,
+
+  QueryToken,
+  LinkToken,
+  OperatorToken
 }
 
-export type KeywordSyntaxKind =
-  SyntaxKind.InKeywordToken;
+export type KeywordSyntaxKind = SyntaxKind.InKeywordToken | SyntaxKind.OperatorToken | SyntaxKind.LinkToken;
 
 export const enum CharacterCodes {
   nullCharacter = 0,
-  maxAsciiCharacter = 0x7F,
+  maxAsciiCharacter = 0x7f,
 
-  lineFeed = 0x0A,              // \n
-  carriageReturn = 0x0D,        // \r
+  lineFeed = 0x0a, // \n
+  carriageReturn = 0x0d, // \r
   lineSeparator = 0x2028,
   paragraphSeparator = 0x2029,
   nextLine = 0x0085,
 
   // Unicode 3.0 space characters
-  space = 0x0020,   // " "
-  nonBreakingSpace = 0x00A0,   //
+  space = 0x0020, // " "
+  nonBreakingSpace = 0x00a0, //
   enQuad = 0x2000,
   emQuad = 0x2001,
   enSpace = 0x2002,
@@ -51,14 +63,14 @@ export const enum CharacterCodes {
   figureSpace = 0x2007,
   punctuationSpace = 0x2008,
   thinSpace = 0x2009,
-  hairSpace = 0x200A,
-  zeroWidthSpace = 0x200B,
-  narrowNoBreakSpace = 0x202F,
+  hairSpace = 0x200a,
+  zeroWidthSpace = 0x200b,
+  narrowNoBreakSpace = 0x202f,
   ideographicSpace = 0x3000,
-  mathematicalSpace = 0x205F,
+  mathematicalSpace = 0x205f,
   ogham = 0x1680,
 
-  _ = 0x5F,
+  _ = 0x5f,
   $ = 0x24,
 
   _0 = 0x30,
@@ -81,12 +93,12 @@ export const enum CharacterCodes {
   g = 0x67,
   h = 0x68,
   i = 0x69,
-  j = 0x6A,
-  k = 0x6B,
-  l = 0x6C,
-  m = 0x6D,
-  n = 0x6E,
-  o = 0x6F,
+  j = 0x6a,
+  k = 0x6b,
+  l = 0x6c,
+  m = 0x6d,
+  n = 0x6e,
+  o = 0x6f,
   p = 0x70,
   q = 0x71,
   r = 0x72,
@@ -97,7 +109,7 @@ export const enum CharacterCodes {
   w = 0x77,
   x = 0x78,
   y = 0x79,
-  z = 0x7A,
+  z = 0x7a,
 
   A = 0x41,
   B = 0x42,
@@ -108,12 +120,12 @@ export const enum CharacterCodes {
   G = 0x47,
   H = 0x48,
   I = 0x49,
-  J = 0x4A,
-  K = 0x4B,
-  L = 0x4C,
-  M = 0x4D,
-  N = 0x4E,
-  O = 0x4F,
+  J = 0x4a,
+  K = 0x4b,
+  L = 0x4c,
+  M = 0x4d,
+  N = 0x4e,
+  O = 0x4f,
   P = 0x50,
   Q = 0x51,
   R = 0x52,
@@ -126,42 +138,42 @@ export const enum CharacterCodes {
   Y = 0x59,
   Z = 0x5a,
 
-  ampersand = 0x26,             // &
-  asterisk = 0x2A,              // *
-  at = 0x40,                    // @
-  backslash = 0x5C,             // \
-  backtick = 0x60,              // `
-  bar = 0x7C,                   // |
-  caret = 0x5E,                 // ^
-  closeBrace = 0x7D,            // }
-  closeBracket = 0x5D,          // ]
-  closeParen = 0x29,            // )
-  colon = 0x3A,                 // :
-  comma = 0x2C,                 // ,
-  dot = 0x2E,                   // .
-  doubleQuote = 0x22,           // "
-  equals = 0x3D,                // =
-  exclamation = 0x21,           // !
-  greaterThan = 0x3E,           // >
-  hash = 0x23,                  // #
-  lessThan = 0x3C,              // <
-  minus = 0x2D,                 // -
-  openBrace = 0x7B,             // {
-  openBracket = 0x5B,           // [
-  openParen = 0x28,             // (
-  percent = 0x25,               // %
-  plus = 0x2B,                  // +
-  question = 0x3F,              // ?
-  semicolon = 0x3B,             // ;
-  singleQuote = 0x27,           // '
-  slash = 0x2F,                 // /
-  tilde = 0x7E,                 // ~
+  ampersand = 0x26, // &
+  asterisk = 0x2a, // *
+  at = 0x40, // @
+  backslash = 0x5c, // \
+  backtick = 0x60, // `
+  bar = 0x7c, // |
+  caret = 0x5e, // ^
+  closeBrace = 0x7d, // }
+  closeBracket = 0x5d, // ]
+  closeParen = 0x29, // )
+  colon = 0x3a, // :
+  comma = 0x2c, // ,
+  dot = 0x2e, // .
+  doubleQuote = 0x22, // "
+  equals = 0x3d, // =
+  exclamation = 0x21, // !
+  greaterThan = 0x3e, // >
+  hash = 0x23, // #
+  lessThan = 0x3c, // <
+  minus = 0x2d, // -
+  openBrace = 0x7b, // {
+  openBracket = 0x5b, // [
+  openParen = 0x28, // (
+  percent = 0x25, // %
+  plus = 0x2b, // +
+  question = 0x3f, // ?
+  semicolon = 0x3b, // ;
+  singleQuote = 0x27, // '
+  slash = 0x2f, // /
+  tilde = 0x7e, // ~
 
-  backspace = 0x08,             // \b
-  formFeed = 0x0C,              // \f
-  byteOrderMark = 0xFEFF,
-  tab = 0x09,                   // \t
-  verticalTab = 0x0B,           // \v
+  backspace = 0x08, // \b
+  formFeed = 0x0c, // \f
+  byteOrderMark = 0xfeff,
+  tab = 0x09, // \t
+  verticalTab = 0x0b // \v
 }
 
 export const enum TokenFlags {
@@ -170,12 +182,16 @@ export const enum TokenFlags {
   PrecedingJSDocComment = 1 << 1,
   Unterminated = 1 << 2,
   ExtendedUnicodeEscape = 1 << 3,
-  Scientific = 1 << 4,        // e.g. `10e2`
-  Octal = 1 << 5,             // e.g. `0777`
-  HexSpecifier = 1 << 6,      // e.g. `0x00000000`
-  BinarySpecifier = 1 << 7,   // e.g. `0b0110010000000000`
-  OctalSpecifier = 1 << 8,    // e.g. `0o777`
+  Scientific = 1 << 4, // e.g. `10e2`
+  Octal = 1 << 5, // e.g. `0777`
+  HexSpecifier = 1 << 6, // e.g. `0x00000000`
+  BinarySpecifier = 1 << 7, // e.g. `0b0110010000000000`
+  OctalSpecifier = 1 << 8, // e.g. `0o777`
   ContainsSeparator = 1 << 9, // e.g. `0b1100_0101`
   BinaryOrOctalSpecifier = BinarySpecifier | OctalSpecifier,
-  NumericLiteralFlags = Scientific | Octal | HexSpecifier | BinaryOrOctalSpecifier | ContainsSeparator
+  NumericLiteralFlags = Scientific |
+    Octal |
+    HexSpecifier |
+    BinaryOrOctalSpecifier |
+    ContainsSeparator
 }

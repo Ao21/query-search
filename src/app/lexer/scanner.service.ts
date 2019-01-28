@@ -6,6 +6,7 @@ import {
   CharacterCodes,
   TokenFlags,
   KeywordSyntaxKind,
+  QueryToken
 } from './scanner.interfaces';
 import {
   formatSyntaxKind,
@@ -15,23 +16,21 @@ import {
   parsePseudoBigInt,
   isOctalDigit,
   isLineBreak,
-  createMapFromTemplate,
+  createMapFromTemplate
 } from './scanner.utilts';
 import { MapLike } from 'typescript';
+import { QueryField } from '../query-search/query-search.consts';
 
 const textToKeywordObj: MapLike<KeywordSyntaxKind> = {
   in: SyntaxKind.InKeywordToken,
-  'fundsgroup': SyntaxKind.InKeywordToken,
+  and: SyntaxKind.LinkToken,
+  not: SyntaxKind.LinkToken
 };
 
 const textToKeyword = createMapFromTemplate(textToKeywordObj);
 
-const textToToken = createMapFromTemplate({
-  ...textToKeywordObj,
-});
-
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class ScannerService {
   private text: string;
@@ -46,27 +45,43 @@ export class ScannerService {
   private tokenValue: any;
   private tokenFlags: any;
 
-  tokens = [];
+  tokens: QueryToken[] = [];
+  textToToken = createMapFromTemplate({
+    ...textToKeywordObj
+  });
 
   setText(text: string) {
+    this.tokens = [];
     this.text = text.toLowerCase().trim();
     this.startPos = 0;
     this.pos = this.tokenPos = 0;
     this.end = this.text.length;
   }
 
-  getTokens() {
+  addTokens(tokens: QueryField[]) {
+    const tok = tokens.reduce((accum, x) => {
+      return Object.assign(accum, { [x.name.toLowerCase()]: x.type });
+    }, {});
+
+    this.textToToken = createMapFromTemplate({
+      ...textToKeywordObj,
+      ...tok
+    });
+  }
+
+  getTokens(): QueryToken[] {
     let token = this.scan();
     while (token !== SyntaxKind.EndOfFileToken) {
-      const currentToken = formatSyntaxKind(token);
+      const currentToken = token;
+      const tokenString = formatSyntaxKind(token);
       const tokenVal = this.tokenValue;
       const tokenStart = this.startPos;
       token = this.scan();
       const tokenEnd = this.startPos;
-      this.tokens.push({ currentToken, tokenVal, tokenStart, tokenEnd });
+      this.tokens.push({ currentToken, tokenString, tokenVal, tokenStart, tokenEnd });
     }
 
-    console.log(this.tokens);
+    return this.tokens;
   }
 
   private scanIdentifierParts(): string {
@@ -93,7 +108,7 @@ export class ScannerService {
       if (this.pos >= this.end) {
         result += this.text.substring(start, this.pos);
         this.tokenFlags |= TokenFlags.Unterminated;
-        throw new Error(`Diagnostics.Unterminated_string_literal`);
+        // throw new Error(`Diagnostics.Unterminated_string_literal`);
         break;
       }
       const ch = this.text.charCodeAt(this.pos);
@@ -143,7 +158,7 @@ export class ScannerService {
       case CharacterCodes.r:
         return '\r';
       case CharacterCodes.singleQuote:
-        return '\'';
+        return "'";
       case CharacterCodes.doubleQuote:
         return '"';
       case CharacterCodes.u:
@@ -186,7 +201,7 @@ export class ScannerService {
   scanHexadecimalEscape(numDigits: number): string {
     const escapedValue = this.scanExactNumberOfHexDigits(
       numDigits,
-      /*canHaveSeparators*/ false,
+      /*canHaveSeparators*/ false
     );
 
     if (escapedValue >= 0) {
@@ -199,12 +214,12 @@ export class ScannerService {
 
   private scanExactNumberOfHexDigits(
     count: number,
-    canHaveSeparators: boolean,
+    canHaveSeparators: boolean
   ): number {
     const valueString = this.scanHexDigits(
       /*minCount*/ count,
       /*scanAsManyAsPossible*/ false,
-      canHaveSeparators,
+      canHaveSeparators
     );
     return valueString ? parseInt(valueString, 16) : -1;
   }
@@ -212,7 +227,7 @@ export class ScannerService {
   private scanExtendedUnicodeEscape(): string {
     const escapedValueString = this.scanMinimumNumberOfHexDigits(
       1,
-      /*canHaveSeparators*/ false,
+      /*canHaveSeparators*/ false
     );
     const escapedValue = escapedValueString
       ? parseInt(escapedValueString, 16)
@@ -227,7 +242,7 @@ export class ScannerService {
       isInvalidExtendedEscape = true;
 
       throw new Error(
-        `Diagnostics.An_extended_Unicode_escape_value_must_be_between_0x0_and_0x10FFFF_inclusive`,
+        `Diagnostics.An_extended_Unicode_escape_value_must_be_between_0x0_and_0x10FFFF_inclusive`
       );
     }
 
@@ -279,11 +294,11 @@ export class ScannerService {
           result += this.text.substring(start, this.pos);
         } else if (isPreviousTokenSeparator) {
           throw new Error(
-            'Multiple_consecutive_numeric_separators_are_not_permitted',
+            'Multiple_consecutive_numeric_separators_are_not_permitted'
           );
         } else {
           throw new Error(
-            'Diagnostics.Numeric_separators_are_not_allowed_here',
+            'Diagnostics.Numeric_separators_are_not_allowed_here'
           );
         }
         this.pos++;
@@ -356,11 +371,11 @@ export class ScannerService {
       this.checkForIdentifierStartAfterNumericLiteral(
         start,
         decimalFragment === undefined &&
-          !!(this.tokenFlags & TokenFlags.Scientific),
+          !!(this.tokenFlags & TokenFlags.Scientific)
       );
       return {
-        type: SyntaxKind.NumericLiteral,
-        value: '' + +result, // if value is not an integer, it can be safely coerced to a number
+        type: SyntaxKind.OperatorToken,
+        value: '' + +result // if value is not an integer, it can be safely coerced to a number
       };
     } else {
       this.tokenValue = result;
@@ -386,11 +401,11 @@ export class ScannerService {
           isPreviousTokenSeparator = true;
         } else if (isPreviousTokenSeparator) {
           throw new Error(
-            'Diagnostics.Multiple_consecutive_numeric_separators_are_not_permitted, pos, 1',
+            'Diagnostics.Multiple_consecutive_numeric_separators_are_not_permitted, pos, 1'
           );
         } else {
           throw new Error(
-            'Diagnostics.Numeric_separators_are_not_allowed_here, pos, 1',
+            'Diagnostics.Numeric_separators_are_not_allowed_here, pos, 1'
           );
         }
         this.pos++;
@@ -407,7 +422,7 @@ export class ScannerService {
     if (this.text.charCodeAt(this.pos - 1) === CharacterCodes._) {
       // Literal ends with underscore - not allowed
       throw new Error(
-        'Diagnostics.Numeric_separators_are_not_allowed_here, pos - 1, 1',
+        'Diagnostics.Numeric_separators_are_not_allowed_here, pos - 1, 1'
       );
     }
     return value;
@@ -423,19 +438,19 @@ export class ScannerService {
 
   private scanMinimumNumberOfHexDigits(
     count: number,
-    canHaveSeparators: boolean,
+    canHaveSeparators: boolean
   ): string {
     return this.scanHexDigits(
       /*minCount*/ count,
       /*scanAsManyAsPossible*/ true,
-      canHaveSeparators,
+      canHaveSeparators
     );
   }
 
   private scanHexDigits(
     minCount: number,
     scanAsManyAsPossible: boolean,
-    canHaveSeparators: boolean,
+    canHaveSeparators: boolean
   ): string {
     let valueChars: number[] = [];
     let allowSeparator = false;
@@ -449,11 +464,11 @@ export class ScannerService {
           isPreviousTokenSeparator = true;
         } else if (isPreviousTokenSeparator) {
           throw new Error(
-            `Diagnostics.Multiple_consecutive_numeric_separators_are_not_permitted, pos, 1`,
+            `Diagnostics.Multiple_consecutive_numeric_separators_are_not_permitted, pos, 1`
           );
         } else {
           throw new Error(
-            `Diagnostics.Numeric_separators_are_not_allowed_here, pos, 1`,
+            `Diagnostics.Numeric_separators_are_not_allowed_here, pos, 1`
           );
         }
         this.pos++;
@@ -479,7 +494,7 @@ export class ScannerService {
     }
     if (this.text.charCodeAt(this.pos - 1) === CharacterCodes._) {
       throw new Error(
-        `Diagnostics.Numeric_separators_are_not_allowed_here, pos - 1, 1`,
+        `Diagnostics.Numeric_separators_are_not_allowed_here, pos - 1, 1`
       );
     }
     return String.fromCharCode(...valueChars);
@@ -493,7 +508,7 @@ export class ScannerService {
         this.tokenValue = parsePseudoBigInt(this.tokenValue) + 'n';
       }
       this.pos++;
-      return SyntaxKind.BigIntLiteral;
+      return SyntaxKind.Identifier;
     } else {
       // not a bigint, so can convert to number in simplified form
       // Number() may not support 0b or 0o, so use parseInt() instead
@@ -504,13 +519,13 @@ export class ScannerService {
           ? parseInt(this.tokenValue.slice(2), 8) // skip "0o"
           : +this.tokenValue;
       this.tokenValue = '' + numericValue;
-      return SyntaxKind.NumericLiteral;
+      return SyntaxKind.Identifier;
     }
   }
 
   private checkForIdentifierStartAfterNumericLiteral(
     numericStart: number,
-    isScientific?: boolean,
+    isScientific?: boolean
   ) {
     if (!isIdentifierStart(this.text.charCodeAt(this.pos))) {
       return;
@@ -522,16 +537,16 @@ export class ScannerService {
     if (length === 1 && this.text[identifierStart] === 'n') {
       if (isScientific) {
         throw new Error(
-          'Diagnostics.A_bigint_literal_cannot_use_exponential_notation, numericStart, identifierStart - numericStart + 1',
+          'Diagnostics.A_bigint_literal_cannot_use_exponential_notation, numericStart, identifierStart - numericStart + 1'
         );
       } else {
         throw new Error(
-          'Diagnostics.A_bigint_literal_must_be_an_integer, numericStart, identifierStart - numericStart + 1',
+          'Diagnostics.A_bigint_literal_must_be_an_integer, numericStart, identifierStart - numericStart + 1'
         );
       }
     } else {
       throw new Error(
-        'Diagnostics.An_identifier_or_keyword_cannot_immediately_follow_a_numeric_literal, identifierStart, length',
+        'Diagnostics.An_identifier_or_keyword_cannot_immediately_follow_a_numeric_literal, identifierStart, length'
       );
       this.pos = identifierStart;
     }
@@ -583,48 +598,72 @@ export class ScannerService {
         case CharacterCodes.lessThan:
           if (this.text.charCodeAt(this.pos + 1) === CharacterCodes.lessThan) {
             if (this.text.charCodeAt(this.pos + 2) === CharacterCodes.equals) {
+              // Less Than Less than Equals
               return (
                 (this.pos += 3),
-                (this.token = SyntaxKind.LessThanLessThanEqualsToken)
+                (this.tokenValue = '<<='),
+                (this.token = SyntaxKind.OperatorToken)
               );
             }
+            // Less Than Less Than
             return (
-              (this.pos += 2), (this.token = SyntaxKind.LessThanLessThanToken)
+              (this.tokenValue = '<<'),
+              (this.pos += 2),
+              (this.token = SyntaxKind.OperatorToken)
             );
           }
+          // Less than Equals
           if (this.text.charCodeAt(this.pos + 1) === CharacterCodes.equals) {
             return (
-              (this.pos += 2), (this.token = SyntaxKind.LessThanEqualsToken)
+              (this.pos += 2),
+              (this.tokenValue = '<='),
+              (this.token = SyntaxKind.OperatorToken)
             );
           }
 
           this.pos++;
-          return (this.token = SyntaxKind.LessThanToken);
+
+          this.tokenValue = '<';
+          return (this.token = SyntaxKind.OperatorToken);
 
         case CharacterCodes.equals:
           if (this.text.charCodeAt(this.pos + 1) === CharacterCodes.equals) {
             if (this.text.charCodeAt(this.pos + 2) === CharacterCodes.equals) {
+              // Equals Equals Equals
               return (
                 (this.pos += 3),
-                (this.token = SyntaxKind.EqualsEqualsEqualsToken)
+                (this.tokenValue = '==='),
+                (this.token = SyntaxKind.OperatorToken)
               );
             }
-            return (this.pos += 2), (this.token = SyntaxKind.EqualsEqualsToken);
+            // Equals Equals
+            return (
+              (this.pos += 2),
+              (this.tokenValue = '==='),
+              (this.token = SyntaxKind.OperatorToken)
+            );
           }
           if (
             this.text.charCodeAt(this.pos + 1) === CharacterCodes.greaterThan
           ) {
+            // Equals Greater Than
             return (
-              (this.pos += 2), (this.token = SyntaxKind.EqualsGreaterThanToken)
+              (this.pos += 2),
+              (this.tokenValue = '=>'),
+              (this.token = SyntaxKind.OperatorToken)
             );
           }
           this.pos++;
-          return (this.token = SyntaxKind.EqualsToken);
+
+          /// Equals
+          return (
+            (this.tokenValue = '='), (this.token = SyntaxKind.OperatorToken)
+          );
 
         case CharacterCodes.doubleQuote:
         case CharacterCodes.singleQuote:
           this.tokenValue = this.scanString();
-          return (this.token = SyntaxKind.StringLiteral);
+          return (this.token = SyntaxKind.Identifier);
 
         case CharacterCodes._0:
           if (
@@ -635,7 +674,7 @@ export class ScannerService {
             this.pos += 2;
             this.tokenValue = this.scanMinimumNumberOfHexDigits(
               1,
-              /*canHaveSeparators*/ true,
+              /*canHaveSeparators*/ true
             );
             if (!this.tokenValue) {
               throw new Error('Diagnostics.Hexadecimal_digit_expected');
@@ -680,7 +719,7 @@ export class ScannerService {
           ) {
             this.tokenValue = '' + this.scanOctalDigits();
             this.tokenFlags |= TokenFlags.Octal;
-            return (this.token = SyntaxKind.NumericLiteral);
+            return (this.token = SyntaxKind.OperatorToken);
           }
         // This fall-through is a deviation from the EcmaScript grammar. The grammar says that a leading zero
         // can only be followed by an octal digit, a dot, or the end of the number literal. However, we are being
@@ -726,7 +765,7 @@ export class ScannerService {
     if (len >= 0 && len <= 20) {
       const ch = this.tokenValue.charCodeAt(0);
       if (ch >= CharacterCodes.a && ch <= CharacterCodes.z) {
-        const keyword = textToKeyword.get(this.tokenValue);
+        const keyword = this.textToToken.get(this.tokenValue);
         if (keyword !== undefined) {
           return (this.token = keyword);
         }

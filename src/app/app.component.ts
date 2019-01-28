@@ -11,8 +11,8 @@ export class AppComponent {
 
   constructor(private scanner: ScannerService) {
 
-    this.scanner.setText('fundsgroup IN "Hello"');
+    // this.scanner.setText('fundsgroup IN "Hello"');
 
-    this.scanner.getTokens();
+    // this.scanner.getTokens();
   }
 }

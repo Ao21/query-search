@@ -1,5 +1,5 @@
 <mat-form-field>
-  <mat-icon *ngIf="tags && tags.length > 2" [class.is-valid]="isValidQuery" matSuffix>{{isValidQuery ? 'check_circle' : 'add_circle'}}</mat-icon>
+  <mat-icon [class.is-valid]="isValidQuery" matSuffix>{{isValidQuery ? 'check_circle' : 'add_circle'}}</mat-icon>
 
   <input
     type="text"

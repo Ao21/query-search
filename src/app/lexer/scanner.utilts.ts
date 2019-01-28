@@ -39,6 +39,15 @@ export function formatSyntaxKind(kind: SyntaxKind | undefined): string {
     case SyntaxKind.InKeywordToken:
       return 'InKeywordToken';
 
+    case SyntaxKind.QueryToken:
+      return 'QueryToken';
+
+    case SyntaxKind.LinkToken:
+      return 'LinkToken';
+
+    case SyntaxKind.OperatorToken:
+      return 'OperatorToken';
+
     case SyntaxKind.EqualsGreaterThanToken:
     case SyntaxKind.Unknown:
     default:
@@ -153,7 +162,7 @@ export function parsePseudoBigInt(stringValue: string): string {
   // Stores the value specified by the string as a LE array of 16-bit integers
   // using Uint16 instead of Uint32 so combining steps can use bitwise operators
   const segments = new Uint16Array(
-    (bitsNeeded >>> 4) + (bitsNeeded & 15 ? 1 : 0),
+    (bitsNeeded >>> 4) + (bitsNeeded & 15 ? 1 : 0)
   );
   // Add the digits, one at a time
   for (

@@ -3,20 +3,10 @@ import { FormControl } from '@angular/forms';
 import { BehaviorSubject } from 'rxjs';
 
 import { QuerySearchSelectedEvent } from './query-search.component';
-import {
-  COMPROMISE_GRAMMER,
-  COMPROMISE_PLUGIN,
-  COMPROMISE_QUERY_MATCH
-} from './compromise-settings';
-import { ConstantPool } from '@angular/compiler';
-
-import { includes } from 'lodash';
-
-import * as nlp from 'compromise';
-import { FUND_NAMES, FUND_TICKERS, BASKET_STAGES, BASKET_STAGES_EU } from './query-search.consts';
-nlp.plugin(COMPROMISE_PLUGIN);
-
-const GRAMMAR_LINKS = [];
+import { DEFAULT_FIELDS } from './query-search.consts';
+import { ScannerService } from '../lexer/scanner.service';
+import { SyntaxKind, QueryToken } from '../lexer/scanner.interfaces';
+import { Token } from '@angular/compiler';
 
 const GRAMMAR_TREE = {
   array: ['contains', 'does not contain'],
@@ -41,134 +31,124 @@ export class QuerySearchFieldComponent {
   @Output() match: EventEmitter<string> = new EventEmitter();
   @Output() reset: EventEmitter<string> = new EventEmitter();
 
-  options: BehaviorSubject<any> = new BehaviorSubject(GRAMMAR_TREE.categories);
+  options: BehaviorSubject<any> = new BehaviorSubject([]);
+
+  fields = DEFAULT_FIELDS.map(x => x.name);
 
   filters: any[] = [];
-
   tags: any;
 
-  constructor() {
-    const BASKET_STATUSES = [...BASKET_STAGES, ...BASKET_STAGES_EU].map(
-      x => x.name
-    );
-
-    const ETF_TYPES = ['Equities', 'Fixed Income', 'Commodity', 'Derivatives'];
-
-    this.tree = {
-      ...GRAMMAR_TREE,
-      stages: BASKET_STATUSES,
-      fundNames: FUND_NAMES,
-      tickers: FUND_TICKERS,
-      types: ETF_TYPES
-    };
-
+  constructor(private scanner: ScannerService) {
+    this.options.next(this.fields);
+    this.scanner.addTokens(DEFAULT_FIELDS);
     this.control.valueChanges.subscribe((n: string) => {
-      const v = nlp(n);
+      this.scanner.setText(n);
+      const tokens = this.scanner.getTokens();
 
-      this.tags = v.out('tags');
+      console.log(tokens);
+      const lastToken = tokens[tokens.length - 1];
 
-      if (!this.tags.length) {
-        this.reset.next();
-        return this.options.next(GRAMMAR_TREE.categories);
+      if (!lastToken) {
+        return this.options.next(this.fields);
       }
 
-      this.checkEntries(this.tags);
+      this.isValidQuery = this.checkEntries(tokens);
 
-      const lastTermTags = this.tags[this.tags.length - 1].tags;
-      let secondLastTags = [];
-      let secondLastItem: any = {};
-
-      if (this.tags.length > 1) {
-        secondLastTags = this.tags[this.tags.length - 2].tags;
-        secondLastItem = this.tags[this.tags.length - 2];
+      if (lastToken && !n.endsWith(' ')) {
+        return this.options.next([]);
       }
 
-      if (secondLastItem.normal === 'status') {
-        return this.options.next(this.tree.status);
+      if (this.isLastLinkToken(lastToken)) {
+        return this.options.next(this.fields);
       }
 
-      if (secondLastItem.normal === 'type') {
-        return this.options.next(this.tree.types);
-      }
-
-      if (secondLastItem.normal === 'ticker') {
-        return this.options.next(this.tree.tickers);
-      }
-
-      if (secondLastItem.normal === 'stage') {
-        return this.options.next(this.tree.stages);
-      }
-
-      if (secondLastItem.normal === 'name') {
-        return this.options.next(this.tree.fundNames);
-      }
-
-      if (lastTermTags.find(x => x === 'Array')) {
-        return this.options.next(GRAMMAR_TREE.array);
-      }
-
-      if (lastTermTags.find(x => x === 'Link')) {
-        return this.options.next(GRAMMAR_TREE.categories);
-      }
-
-      if (lastTermTags.find(x => x === 'String')) {
-        return this.options.next(GRAMMAR_TREE.string);
-      }
-
-      const lastWordIsNotTag =
-        !lastTermTags.find(x => x === 'String') &&
-        !lastTermTags.find(x => x === 'Link') &&
-        !lastTermTags.find(x => x === 'Array') &&
-        !lastTermTags.find(x => x === 'Grammar');
-
-      const secondLastWordIsTag = [
-        secondLastTags.includes('String'),
-        secondLastTags.includes('Link'),
-        secondLastTags.includes('Array'),
-        secondLastTags.includes('Grammar')
-      ];
-
-      if (
-        lastWordIsNotTag &&
-        secondLastWordIsTag.includes(true) &&
-        n.charAt(n.length - 1) === ' '
-      ) {
+      if (this.isLastIdentifierToken(lastToken)) {
         return this.options.next(GRAMMAR_TREE.links);
       }
 
-      this.options.next([]);
+      if (this.isLastQueryToken(lastToken)) {
+        const operators = this.getQueryTokenOperators(lastToken);
+        return this.options.next(operators);
+      }
+
+      if (this.isLastOperatorToken(lastToken)) {
+        console.log(tokens[tokens.length - 1]);
+
+        return this.options.next([]);
+      }
     });
   }
 
-  checkEntries(tags: any[]) {
-    const item = tags.reduce((accum, x) => {
-      return accum + x.normal;
-    }, '');
+  isLastLinkToken(token: QueryToken) {
+    return token.currentToken === SyntaxKind.LinkToken;
+  }
+  isLastQueryToken(token: QueryToken) {
+    return token.currentToken === SyntaxKind.QueryToken;
+  }
 
-    console.log(item);
+  isLastOperatorToken(token: QueryToken) {
+    return token.currentToken === SyntaxKind.OperatorToken;
+  }
 
-    this.isValidQuery =
-      COMPROMISE_QUERY_MATCH[item] !== undefined ? true : false;
+  isLastIdentifierToken(token: QueryToken) {
+    return (
+      token.currentToken === SyntaxKind.Identifier ||
+      token.currentToken === SyntaxKind.StringLiteral
+    );
+  }
 
-    if (this.isValidQuery) {
-      this.match.next(COMPROMISE_QUERY_MATCH[item]);
-    } else {
-      this.reset.next();
+  getQueryTokenOperators(token: QueryToken) {
+    const field = DEFAULT_FIELDS.find(
+      x => x.name.toLowerCase() === token.tokenVal.toLowerCase()
+    );
+    return field.operators;
+  }
+
+  checkEntries(tokens: QueryToken[]) {
+    let isValid = true;
+
+    if (!tokens.length) {
+      return false;
     }
+
+    // Last Token should be an Identifier
+    if (tokens[tokens.length - 1].currentToken !== SyntaxKind.Identifier) {
+      isValid = false;
+    }
+
+    tokens.reverse().forEach((token: QueryToken, i: number) => {
+      const nextToken = tokens[i + 1];
+      const isLastToken = !nextToken;
+
+      if (isLastToken) {
+        return;
+      }
+
+      switch (token.currentToken) {
+        case SyntaxKind.Identifier:
+          if (nextToken.currentToken !== SyntaxKind.OperatorToken) {
+            isValid = false;
+          }
+          return;
+        case SyntaxKind.OperatorToken:
+          if (nextToken.currentToken !== SyntaxKind.QueryToken) {
+            isValid = false;
+          }
+          return;
+        case SyntaxKind.QueryToken:
+          if (nextToken && nextToken.currentToken !== SyntaxKind.LinkToken) {
+            isValid = false;
+          }
+          return;
+      }
+    });
+
+    return isValid;
   }
 
   displayFn(val): string | undefined {
     return val ? val : undefined;
   }
 
-  selectOption(event: QuerySearchSelectedEvent) {
-    // const val = event.option.value;
-    // this.filters.push(val);
-    // let next = this.tree[val.next];
-    // if (val.override) {
-    //   next = next.map(x => ({ ...x, next: val.override }));
-    // }
-    // this.isManualEntry = !next ? true : false;
-    // this.options.next(next);
-  }
+  selectOption() {}
 }
